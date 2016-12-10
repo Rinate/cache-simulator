@@ -1,7 +1,19 @@
-I=1
-for J in {1..7}
-do
-  echo $I
-  ./sim ./trace/1.trace 0 0 0 100 2097152 64 $I 0 4 262144 64 8 3 5 0 0 0 0 0
-  I=$(($I*2))
-done
+
+make
+# I=1
+# for J in {1..7}
+# do
+  	# 	 trace		enable_l2		enable_l3	mem_bus 	mem_hit
+	#	l1_size 	l1_block 		l1_ass 		l1_bus 		l1_hit 		l1_prefetch 	l1_replace
+  	#	l2_size 	l2_block 		l2_ass 		l2_bus 		l2_hit 		l2_prefetch 	l2_replace
+  	#	l3_size 	l3_block 		l3_ass 		l3_bus 		l3_hit 		l3_prefetch 	l3_replace
+./sim ./trace/1.trace 	1 			0 			100			0\
+  		32768 			64 			8 			0 			4 			1 				1\
+  		262144 			64 			8 			6 			5 			1 				1\
+  		0				0 			0 			0 			0			0				0
+  # I=$(($I*2))
+# done
+
+# 	replace_policy:
+# 			LRU 	0
+# 			FIFO	1

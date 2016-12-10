@@ -41,12 +41,16 @@ argv7   l1_block_size
 argv8   l1_associativity
 argv9   l1_bus_latency
 argv10  l1_hit_latency
+argv11  l1_prefetch_num
+argv12  l1_replace_policy
     L2 STATS:
-argv11  l2_cache_size
-argv12  l2_block_size
-argv13  l2_associativity
-argv14  l2_bus_latency
-argv15  l2_hit_latency
+argv13  l2_cache_size
+argv14  l2_block_size
+argv15  l2_associativity
+argv16  l2_bus_latency
+argv17  l2_hit_latency
+argv18  l2_prefetch_num
+argv19  l2_replace_policy
     L3 STATS:
 argv16   l3_cache_size
 argv17   l3_block_size
@@ -56,5 +60,7 @@ argv20   l3_hit_latency
 ```
 
 Example ./sim ./trace/1.trace 1 0 0 100 32768 64 8 0 4 262144 64 8 3 5 0 0 0 0 0
+
+        ./sim ./trace/1.trace 1 0 100 0 32768 64 8 0 4 1 1 262144 64 8 6 5 1 1 0 0 0 0 0
 
 可用batch_tests方便的设置

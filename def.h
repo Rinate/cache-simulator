@@ -49,7 +49,8 @@
 
 //strategy
 typedef int replace_t;
-#define LRU 0
+#define LRU  0
+#define FIFO 1
 
 
 #endif //CACHE_DEF_H_

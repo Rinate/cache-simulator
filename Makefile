@@ -5,7 +5,7 @@ STD=-std=c++14
 all: clean sim
 
 sim: main.o cache.o memory.o 
-	$(CC) -o $@ $^ $(STD) 
+	$(CC) $(STD) -o $@ $^  
 
 main.o: storage.h cacti/io.h
 

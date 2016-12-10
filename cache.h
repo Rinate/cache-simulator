@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <vector>
+#include <queue>
 #include <iostream>
 #include "storage.h"
 #include "def.h"
@@ -27,8 +28,6 @@ typedef struct CacheConfig_
   int block_size;
   int tag_len;
 
-  int write_through; // 0|1 for back|through
-  int write_allocate; // 0|1 for no-alc|alc
 } CacheConfig;
 
 
@@ -54,10 +53,12 @@ class Set
 {
 public:
   std::vector<Line> set_st;
+  std::queue<int> fifo_q;  //maintain a replace queue for FIFO, record seq in set_st
   uint64_t last_hit_tag;
   Set(int line_num,int block_ssize)
   {   //构造函数
     last_hit_tag = 0;
+
     for(int k = 0;k < line_num; k++)
     {
       Line* tmp = new Line(block_ssize);
@@ -67,9 +68,11 @@ public:
 };
 
 
+
 class Cache: public Storage {
  public:
-  Cache(int size_, int block_, int ass_, int policy, int replacement)
+  Cache(int size_, int block_, int ass_,
+        int replacement, int prefetch_num)
   { 
 
     config_.size = size_;               //这里默认输入以byte为单位
@@ -85,23 +88,11 @@ class Cache: public Storage {
     // printf("tag_len:%x\n", config_.tag_len);
 
 
-
-    /****需要确定基本策略，以下应该不需要*****/
-    if(policy == WRITE_BACK_ALLOCATE)
-    {
-        config_.write_through = WRITE_BACK;
-        config_.write_allocate = WRITE_ALLOCATE;
-    }
-    /***********************/
+    strategy = replacement;
+    prefetch_blocks = prefetch_num; 
 
 
 
-
-    strategy = LRU; //replacement
-    prefetch_blocks = 1; 
-
-
-   
     for(int i = 0;i < config_.set_num;i++)
     { 
 
@@ -139,31 +130,31 @@ class Cache: public Storage {
   }   
   
   void HandleRequest(uint64_t addr, int bytes, int read_or_write,
-                     char *content, int &hit, int &time);
+                     char *content, int& time);
 
   void visit(uint64_t addr,int len, int read_or_write);
  private:
   
   int BypassDecision(uint64_t addr);  
   void BypassAlgorithm(uint64_t addr, int bytes, int read, 
-                      char* content, int& hit, int& time);
+                      char* content, int& time);
   
-  int AccessHit(int set_index, uint64_t addr_tag, int& line_offset);
+  int AccessHit(int set_index, uint64_t addr_tag, int& set_way);
   // int ReplaceDecision(int set_index, uint64_t addr_tag, int& line_offset);    //
   void ReplaceAlgorithm(int set_index,uint64_t addr, int bytes, int read_or_write,
-                          char *content, int &hit, int &time);
+                          char *content, int& time);
   
   inline int PrefetchDecision();
-  void PrefetchAlgorithm(uint64_t addr, int &hit,int &time);
+  void PrefetchAlgorithm(uint64_t addr, int& time);
 
 
   std::vector<Set> mycache_; 
   
   CacheConfig config_;
-  
+
   /* Inherit */
   //StorageStats stats_;
-  //StorageLatency latency_;
+  // StorageLatency latency_;
   
   Storage *lower_;
 

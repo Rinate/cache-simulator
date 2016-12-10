@@ -25,12 +25,12 @@ void trace(Cache* level1)
 
     FILE*fp=fopen(PATH,"r");
     char b;
-    long int addr;
-    // fscanf(fp,"%c\t%lu\n",&b,&addr);
-    // cout<<b<<addr;
+    uint64_t addr;
     
+
     while(!feof(fp)){
         fscanf(fp,"%c %llx\n",&b,&addr);
+        
         /* if(!(isdigit(addr)))
          {
          cout<<"Wrong address!"<<endl;
@@ -43,6 +43,7 @@ void trace(Cache* level1)
             return;
         }*/
         
+
         bool r_or_w;
         if(b == 'r')
             r_or_w = 1;
@@ -53,8 +54,6 @@ void trace(Cache* level1)
             cout<<"Wrong operation!"<<b<<addr<<endl; //若操作不是r or w
             return;
         }
-
-        printf("when trace!\n");
 
         int visit_len = 1;  // 我们先假设我们访问缓存时的数据大小总是小于block的大小
         level1->visit(addr, visit_len, r_or_w);
@@ -71,7 +70,9 @@ Cache* make_cache(int cache_size,
                 int block_size,
                 int associativity,
                 int bus_time,
-                int hit_time)
+                int hit_time,
+                int prefetch_num,
+                int replace_policy)
 {
     Cache* cache;
     StorageStats stats;
@@ -80,7 +81,8 @@ Cache* make_cache(int cache_size,
     latency.bus_latency = bus_time;
     latency.hit_latency = hit_time;
 
-    cache = new Cache(cache_size, block_size, associativity, WRITE_BACK_ALLOCATE, LRU);
+    cache = new Cache(cache_size, block_size, associativity,
+                      replace_policy, prefetch_num);
     cache->SetStats(stats);
     cache->SetLatency(latency);
 
@@ -127,7 +129,16 @@ void print_stat(int is_cache, const StorageStats &stats)
 {
 
     if (is_cache){
-        printf("%d %f\n",stats.miss_num,double(stats.miss_num)/double(stats.access_counter));
+        printf("\t\tAccess Counter = %d\n\
+                Miss Num = %d\n\
+                Prefetch Num = %d\n\
+                Bypass Num = %d\n\
+                Access Time = %d\n",
+                stats.access_counter,\
+                stats.miss_num,\
+                stats.prefetch_num,\
+                stats.bypass_num,\
+                stats.access_time);
     }
     // if (is_cache){
     //     printf("\tAccess Counter = %d\n\tMiss Num = %d\n\tAccess Time = %d\n\tMiss Rate =  %f\n\tReplace Num = %d\n\tAccess Lower Num = %d\n"
@@ -136,11 +147,11 @@ void print_stat(int is_cache, const StorageStats &stats)
     //         , (double(stats.miss_num)/double(stats.access_counter))
     //         , stats.replace_num, stats.access_lower_num);
     // }
-    // else{
-    //     printf("\tMem Access Counter = %d\n\tMem Access Time = %d\n"
-    //         , stats.access_counter
-    //         , stats.access_time);
-    // }
+    else{
+        printf("\tMem Access Counter = %d\n\tMem Access Time = %d\n"
+            , stats.access_counter
+            , stats.access_time);
+    }
 }
 
 int main(int argc, char  *argv[]) 
@@ -157,7 +168,7 @@ int main(int argc, char  *argv[])
     // get arguments
     int enable_l2, enable_l3;
     
-    int cs[3], bs[3], as[3], bt[3], ht[3];
+    int cs[3], bs[3], as[3], bt[3], ht[3], pn[3], rp[3];
     int bt_mem, ht_mem;
 
     enable_l2 = atoi(argv[2]); // 0 or 1
@@ -171,26 +182,25 @@ int main(int argc, char  *argv[])
         as[i] = atoi(argv[cnt++]);
         bt[i] = atoi(argv[cnt++]);
         ht[i] = atoi(argv[cnt++]);
+        pn[i] = atoi(argv[cnt++]);
+        rp[i] = atoi(argv[cnt++]);
     }
     //end of getting arguments
 
     //initialize memory and cache
     memory = make_memory(bt_mem, ht_mem);
-    l1_cache = make_cache(cs[0], bs[0], as[0], bt[0], ht[0]);
+    l1_cache = make_cache(cs[0], bs[0], as[0], bt[0], ht[0], pn[0], rp[0]);
     if (enable_l2)
-        l2_cache = make_cache(cs[1], bs[1], as[1], bt[1], ht[1]);
+        l2_cache = make_cache(cs[1], bs[1], as[1], bt[1], ht[1], pn[1], rp[1]);
     if (enable_l3)
-        l3_cache = make_cache(cs[2], bs[2], as[2], bt[2], ht[2]);
+        l3_cache = make_cache(cs[2], bs[2], as[2], bt[2], ht[2], pn[2], rp[2]);
 
     set_memory_hierarchy(memory, l1_cache, l2_cache, l3_cache);
-
-
 
     trace(l1_cache);
 
 
-    //任何时刻，总访问时间由各个Storage 的 Stats.access_time 之和组成
-    //但是只考察cache的命中情况
+    //但是只考察cache的命中情况和延迟
 
 
     //Print stats
@@ -198,11 +208,7 @@ int main(int argc, char  *argv[])
     // printf("STRACE: %s\n", PATH);
 
     StorageStats stats;
-    // cout << "--------" <<endl<<"Memory Stats:"<<endl;
-    memory->GetStats(stats);
-    print_stat(IS_MEM, stats);
-
-    // cout << "--------" <<endl<<"L1 Cache Stats:"<<endl;
+    cout << "--------" <<endl<<"L1 Cache Stats:"<<endl;
     l1_cache->GetStats(stats);
     print_stat(IS_CACHE, stats);
 
@@ -217,6 +223,12 @@ int main(int argc, char  *argv[])
         l3_cache->GetStats(stats);
         print_stat(IS_CACHE, stats);
     }
+
+
+    cout << "--------" <<endl<<"Memory Stats:"<<endl;
+    memory->GetStats(stats);
+    print_stat(IS_MEM, stats);
+
 
     return 0;
 }
