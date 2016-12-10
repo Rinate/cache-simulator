@@ -93,6 +93,7 @@ class Cache: public Storage {
 
 
 
+
     for(int i = 0;i < config_.set_num;i++)
     { 
 
@@ -130,7 +131,7 @@ class Cache: public Storage {
   }   
   
   void HandleRequest(uint64_t addr, int bytes, int read_or_write,
-                     char *content, int& time);
+                     char *content, int& time, int prefetch);
 
   void visit(uint64_t addr,int len, int read_or_write);
  private:
@@ -160,6 +161,7 @@ class Cache: public Storage {
 
   replace_t strategy;
   int prefetch_blocks;
+
 
 
   DISALLOW_COPY_AND_ASSIGN(Cache);

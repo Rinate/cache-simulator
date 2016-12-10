@@ -18,6 +18,7 @@ typedef struct StorageStats_ // Storage access stats
   int access_lower_num; // Access lower layer
   int prefetch_num; // Prefetch
   int bypass_num;
+  int write_back_num;
   StorageStats_()
   {
       access_counter = 0;
@@ -26,7 +27,8 @@ typedef struct StorageStats_ // Storage access stats
       replace_num = 0; // Evict old lines
       access_lower_num = 0; // Access lower layer
       prefetch_num = 0; // Prefetch
-      bypass_num = 0; 
+      bypass_num = 0;
+      write_back_num = 0;
   }
 } StorageStats;
 
@@ -60,7 +62,7 @@ class Storage
   // [out] hit: 0|1 for miss|hit
   // [out] time: total access time
   virtual void HandleRequest(uint64_t addr, int bytes, int read,
-                             char *content, int &time)=0;
+                             char *content, int &time, int prefetch)=0;
 
  protected:
   StorageStats stats_;

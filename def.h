@@ -15,21 +15,25 @@
 #define SET_BITS	(log2(config_.set_num))
 #define BLOCK_BITS  (log2(config_.block_size))
 
-
+// line
 #define VALID 	1
 #define UNVALID 0
 
-#define WRITE_BACK 		0
-#define WRITE_THROUGH	1
-
-#define WRITE_NONALLOCATE	0
-#define WRITE_ALLOCATE 		1
-
+// operation
 #define READ_OPERATION		1
 #define WRITE_OPERATION		0
 
-//Policy
-#define	WRITE_BACK_ALLOCATE 1
+#define FETCH 		TRUE 
+#define ISNT_FETCH	FALSE
+
+//strategy
+typedef int replace_t;
+#define LRU  0
+#define FIFO 1
+
+
+
+
 
 
 #define DEBUG_REQUEST(addr, set_index, bytes, read_or_write, addr_tag) \
@@ -47,10 +51,6 @@
 
 
 
-//strategy
-typedef int replace_t;
-#define LRU  0
-#define FIFO 1
 
 
 #endif //CACHE_DEF_H_

@@ -125,7 +125,7 @@ void set_memory_hierarchy(Memory* memory,
     }
 }
 
-void print_stat(int is_cache, const StorageStats &stats)
+void print_stat(int is_cache, const StorageStats& stats)
 {
 
     if (is_cache){
@@ -139,6 +139,8 @@ void print_stat(int is_cache, const StorageStats &stats)
                 stats.prefetch_num,\
                 stats.bypass_num,\
                 stats.access_time);
+
+        // printf("\t\tAccess_lower_num = %d, WriteBack Num = %d\n", stats.access_lower_num, stats.write_back_num);
     }
     // if (is_cache){
     //     printf("\tAccess Counter = %d\n\tMiss Num = %d\n\tAccess Time = %d\n\tMiss Rate =  %f\n\tReplace Num = %d\n\tAccess Lower Num = %d\n"

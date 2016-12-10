@@ -7,17 +7,17 @@ void Cache::visit(uint64_t addr,int len,int read_or_write)
     char *content = new char[len];
     int time = 0;
 
-    HandleRequest(addr, len, read_or_write, content, time, ISNT_FETCH);
+    HandleRequest(addr, len, read_or_write, content, time);
 
     delete [] content;
 }
 
 void Cache::HandleRequest(uint64_t addr, int bytes, int read,
-                          char *content, int &time, int prefetch) 
+                          char *content, int &time) 
 {
-    // request
 
-    if( prefetch != FETCH ){ stats_.access_counter ++; }
+    // request
+    stats_.access_counter ++;
 
     // request cost
     time += latency_.bus_latency;
@@ -79,8 +79,8 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         }
     }
     
-    if(prefetch != FETCH) {  stats_.access_time += time;   }
 
+    stats_.access_time += time;
 }
 
 int Cache::AccessHit(int set_index, uint64_t addr_tag, int& set_way)
@@ -96,6 +96,7 @@ int Cache::AccessHit(int set_index, uint64_t addr_tag, int& set_way)
         {
             set_way = i;    // choose the block
             set[i].counter = stats_.access_counter; //global counter
+            set[i].frequency ++;  //LFU
             return TRUE;
         }
     }
@@ -109,7 +110,7 @@ int Cache::BypassDecision(uint64_t addr_tag, int set_index)
     {
         return FALSE;
     }
-    else                        // capacity miss
+    else    // capacity miss
     {
         stats_.bypass_num++;
         return TRUE;
@@ -123,7 +124,7 @@ void Cache::BypassAlgorithm(uint64_t addr, int bytes, int read,
     int lower_time = 0;     // bypass current cache
 
     lower_->HandleRequest(addr, bytes, read, 
-                        content, lower_time, ISNT_FETCH);
+                        content, lower_time);
     
     time += lower_time;
     stats_.access_lower_num += 1;
@@ -149,7 +150,9 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
                 case FIFO:
                     queue.push(i);
                     break;
-
+                case LFU:
+                    set[i].frequency = 1;
+                    set[i].counter = stats_.access_counter;
                 default:
                     printf("non-exist cache replacement strategy %d\n", strategy);
             }
@@ -162,7 +165,7 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
 
                 stats_.access_lower_num ++;
                 lower_->HandleRequest(addr, config_.block_size, read_or_write
-                                            , set[i].block, lower_time, ISNT_FETCH);
+                                            , set[i].block, lower_time);
                         
                 set[i].dirty = 0;
                 set[i].valid = VALID;
@@ -201,11 +204,33 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
             queue.pop();
             queue.push(cnt);
             break;
-
+        case LFU:
+            int least_f = 1<<31;
+            for(int i = 1; i< config_.associativity;++i)
+            {
+                if(set[i].frequency < least_f)
+                {
+                    cnt = i;
+                    least_f = set[i].frequency;
+                }
+            }
+            for(int i = 1; i< config_.associativity;++i)
+            {
+                if(set[i].frequency == least_f)  //if equal frequency, refer to recent time
+                {
+                    if(set[i].counter < set[cnt].counter)
+                    {
+                        cnt = i;
+                    }
+                }
+                set[i].frequency = 0;  //reset after replace takes place
+            }
+            set[cnt].frequency = 1;
+            break;
         default:
          printf("non-exist cache replacement strategy %d\n", strategy);
     }
-    set[cnt].counter = stats_.access_counter;
+    set[cnt].counter = stats_.accsess_counter;
     stats_.replace_num ++;
     
     
@@ -220,9 +245,8 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
         
         lower_->HandleRequest(tmp_addr, config_.block_size, 
                               WRITE_OPERATION, set[cnt].block, 
-                              lower_time, ISNT_FETCH);
+                              lower_time);
         
-        stats_.write_back_num ++;
 
         time += lower_time;
     }
@@ -241,7 +265,7 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
         set[cnt].dirty = 0;
         stats_.access_lower_num ++;
         lower_->HandleRequest(addr, config_.block_size, READ_OPERATION
-                            , set[cnt].block, lower_time, ISNT_FETCH);
+                            , set[cnt].block, lower_time);
 
         set[cnt].tag = (uint64_t)(addr >> TAG_OFFSET);
 
@@ -253,7 +277,7 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
         
     
 
-inline int Cache::PrefetchDecision(){   return TRUE;    }
+inline int Cache::PrefetchDecision(){return TRUE;}
 
 void Cache::PrefetchAlgorithm(uint64_t addr, int &time) 
 {
@@ -271,7 +295,7 @@ void Cache::PrefetchAlgorithm(uint64_t addr, int &time)
 
 
         lower_->HandleRequest(cur_addr, config_.block_size, READ_OPERATION, 
-                                content, lower_time, FETCH);
+                                content, lower_time);
 
         // we don't count the time cost on prefetch unnessary data        
 

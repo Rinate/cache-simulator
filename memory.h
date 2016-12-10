@@ -12,7 +12,7 @@ public:
 
   // Main access process
 	void HandleRequest(uint64_t addr, int bytes, int read,
-                     char *content, int &time);
+                     char *content, int &time, int prefetch);
 
 private:
   // Memory implement
