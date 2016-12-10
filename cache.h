@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <queue>
+#include <map>
 #include <iostream>
 #include "storage.h"
 #include "def.h"
@@ -30,6 +31,14 @@ typedef struct CacheConfig_
 
 } CacheConfig;
 
+typedef struct node{
+  bool operator > (const node &b)
+  {
+    return this->freq > b.freq;
+  }
+  int seq, freq;
+} node;
+
 
 class Line
 {    
@@ -39,11 +48,14 @@ public:
     uint64_t tag;            //tag定义为64位int数，方便比较操作
     char* block;             //data用malloc实现动态分配大小，会不会影响取数据的时间？ 
     uint64_t counter;        //维护一个counter,用来记录最近一次使用的时间，实现LRU
+    int frequency;
+    bool MRU;
     Line(int num)            //num=block size
     {           
         block = new char[num];
         valid = 0;
         dirty = 0;
+        frequency = 0;
     }
     ~Line()= default;
 };
@@ -55,9 +67,14 @@ public:
   std::vector<Line> set_st;
   std::queue<int> fifo_q;  //maintain a replace queue for FIFO, record seq in set_st
   uint64_t last_hit_tag;
+  int mru_num ;  //记录MRU策略中有多少被设定为1
+  // a heap+map for LFU_2
+  std::priority_queue<node,std::vector<node>,std::greater<node> > p_q;
+  std::map<int,node> mmap;
   Set(int line_num,int block_ssize)
   {   //构造函数
     last_hit_tag = 0;
+    mru_num = line_num - 1;  //mru_num --set中还有多少个0
 
     for(int k = 0;k < line_num; k++)
     {

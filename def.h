@@ -28,8 +28,10 @@
 
 //strategy
 typedef int replace_t;
-#define LRU  0
-#define FIFO 1
+#define LRU		0
+#define FIFO	1
+#define LFU		2
+#define PLRU	3
 
 
 

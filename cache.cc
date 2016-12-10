@@ -96,6 +96,35 @@ int Cache::AccessHit(int set_index, uint64_t addr_tag, int& set_way)
         {
             set_way = i;    // choose the block
             set[i].counter = stats_.access_counter; //global counter
+            set[i].frequency ++;  //LFU
+            if(set[i].MRU == 0)
+            {
+                mycache_[set_index].mru_num -- ;
+            }
+            if( mycache_[set_index].mru_num == 0)
+            {
+                for(int j = 0;j < config_.associativity; ++j)
+                    set[j].MRU = 0;
+                mycache_[set_index].mru_num = config_.associativity -1;
+            }
+            set[i].MRU = 1;
+            /*if(strategy == PLRU)
+            {
+                int mnum = config_.associativity-1;
+            
+            for(int k = 0;k < config_.associativity; ++ k)
+            {
+                if(set[k].MRU == 1 )
+                    mnum -- ;
+            }
+            if(mnum == 0)
+            {
+                for(int j = 0; j< config_.associativity; ++j)
+                    set[j].MRU = 0 ;
+
+                set[k].MRU = 1;
+            }
+            }*/
             return TRUE;
         }
     }
@@ -150,6 +179,22 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
                     queue.push(i);
                     break;
 
+                case LFU:
+                    set[i].frequency = 1;
+                    set[i].counter = stats_.access_counter;
+                    break;
+
+                case PLRU:
+                    mycache_[set_index].mru_num --;
+                    if( mycache_[set_index].mru_num == 0)
+                    {
+                        for(int j = 0;j < config_.associativity; ++j)
+                            set[j].MRU = 0;
+                         mycache_[set_index].mru_num = config_.associativity -1;
+                    }
+                    set[i].MRU = 1;
+                    break;
+
                 default:
                     printf("non-exist cache replacement strategy %d\n", strategy);
             }
@@ -187,6 +232,8 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
     int cnt = 0;
 
     //  cache is full, find the right block to replace depending on different replace algorithm
+    int least_f = 0x7fffffff;
+    int mnum = config_.associativity - 1;
     switch(strategy)      
     {
         case LRU:
@@ -195,15 +242,73 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
                 cnt = set[cnt].counter < set[i].counter ? cnt : i;
             }
             break;
-
         case FIFO:
             cnt = queue.front();
             queue.pop();
             queue.push(cnt);
             break;
+        case LFU:
+            for(int i = 0; i < config_.associativity; ++i)
+            {
+                if(set[i].frequency < least_f)
+                {
+                    cnt = i;
+                    least_f = set[i].frequency;
+                }
+            }
+            for(int i = 0; i < config_.associativity; ++i)
+            {
+                if(set[i].frequency == least_f)  //if equal frequency, refer to recent time
+                {
+                    if(set[i].counter < set[cnt].counter)
+                    {
+                        cnt = i;
+                    }
+                }
+                set[i].frequency = 0;  //reset after replace takes place
+            }
+            set[cnt].frequency = 1;
+            break;
+
+        case PLRU:
+            for(int k = 0; k < config_.associativity; ++ k)
+            {
+                if(set[k].MRU == 0)
+                    {
+                        mycache_[set_index].mru_num --;
+                        break;
+                    }
+
+            }
+            if( mycache_[set_index].mru_num == 0)
+                {
+                    for(int j = 0;j < config_.associativity; ++j )
+                        set[j].MRU = 0;
+                    mycache_[set_index].mru_num = config_.associativity - 1;
+                }
+
+            set[k].MRU = 1;
+            /*for(int i = 0;i < config_.associativity; ++ i)
+            {
+                if(set[i].MRU == 0 )
+                {
+                    cnt = i;
+                }
+                else
+                    mnum -- ;
+            }
+            if(mnum == 0)
+            {
+                for(int i = 0; i < config_.associativity; ++i)
+                    set[i].MRU = 0 ;
+
+                set[cnt].MRU = 1;
+            }*/
+            break;
 
         default:
-         printf("non-exist cache replacement strategy %d\n", strategy);
+             printf("non-exist cache replacement strategy %d\n", strategy);
+             break;
     }
     set[cnt].counter = stats_.access_counter;
     stats_.replace_num ++;
