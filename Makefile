@@ -2,10 +2,11 @@ CC=g++
 STD=-std=c++14
 
 
+
 all: clean sim
 
 sim: main.o cache.o memory.o 
-	$(CC) $(STD) -o $@ $^  
+	$(CC)   -o $@ $^  $(STD) 
 
 main.o: storage.h cacti/io.h
 

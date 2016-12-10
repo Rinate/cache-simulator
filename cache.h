@@ -135,7 +135,7 @@ class Cache: public Storage {
   void visit(uint64_t addr,int len, int read_or_write);
  private:
   
-  int BypassDecision(uint64_t addr);  
+  int BypassDecision(uint64_t addr_tag, int set_index);  
   void BypassAlgorithm(uint64_t addr, int bytes, int read, 
                       char* content, int& time);
   

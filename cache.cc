@@ -47,7 +47,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         stats_.miss_num++;
 
 
-        if(BypassDecision(addr))
+        if(BypassDecision(addr_tag, set_index))
         {
             BypassAlgorithm(addr, bytes, read, 
                             content, time);
@@ -64,7 +64,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     }
     else    // hit
     {  
-            
+        mycache_[set_index].last_hit_tag = addr_tag;
         if(read == READ_OPERATION)
         {
             memcpy(content, mycache_[set_index].set_st[set_way].block, bytes);
@@ -102,13 +102,8 @@ int Cache::AccessHit(int set_index, uint64_t addr_tag, int& set_way)
     return FALSE;    
 }
 
-int Cache::BypassDecision(uint64_t addr)
-{
-    uint64_t addr_tag = addr >> TAG_OFFSET;
-    int block_offset = (int)(addr & BLOCK_MASK); 
-    int set_index = (int)((addr >> SET_OFFSET) & SET_MASK); 
-
-    
+int Cache::BypassDecision(uint64_t addr_tag, int set_index)
+{   
     const auto set_tag = mycache_[set_index].last_hit_tag;
     if(set_tag == addr_tag)     // conflict miss
     {
@@ -139,7 +134,7 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
 {       
     auto& set = mycache_[set_index].set_st;
     auto& queue = mycache_[set_index].fifo_q;
-            //      cache is not full
+    //  cache is not full
     for (int i = 0; i < config_.associativity; ++i) 
     {
         if(set[i].valid == UNVALID)
@@ -177,82 +172,82 @@ void Cache::ReplaceAlgorithm(int set_index, uint64_t addr, int bytes, int read_o
             }
             else    
             {
-                        //注意更新的内容大小，bytes.s
-                    set[i].valid = 1;
-                    set[i].tag   = (addr >> TAG_OFFSET);
-                            
-                    memcpy(set[i].block, content, config_.block_size);
+                //注意更新的内容大小，bytes
+                set[i].valid = 1;
+                set[i].tag   = (uint64_t)(addr >> TAG_OFFSET);
+                set[i].dirty = 1;
+                        
+                memcpy(set[i].block, content, config_.block_size);
 
-                    set[i].dirty = 1;
             }
             return;
         }
     }
 
-            int cnt = 0;
+    int cnt = 0;
 
-            //      cache is full, find the right block to replace depending on different replace algorithm
-            switch(strategy)      
+    //  cache is full, find the right block to replace depending on different replace algorithm
+    switch(strategy)      
+    {
+        case LRU:
+            for (int i = 1; i < config_.associativity; ++i) 
             {
-                case LRU:
-                    for (int i = 1; i < config_.associativity; ++i) 
-                    {
-                        cnt = set[cnt].counter < set[i].counter ? cnt : i;
-                    }
-                    break;
-
-                case FIFO:
-                    cnt = queue.front();
-                    queue.pop();
-                    queue.push(cnt);
-                    break;
-
-                default:
-                 printf("non-exist cache replacement strategy %d\n", strategy);
+                cnt = set[cnt].counter < set[i].counter ? cnt : i;
             }
-            set[cnt].counter = stats_.access_counter;
-            stats_.replace_num ++;
-            
-            
-            int lower_time = 0;
+            break;
 
-            if(read_or_write == WRITE_OPERATION)
-            {
-                    set[cnt].dirty = 1;
-                    set[cnt].tag = (addr >> TAG_OFFSET);
+        case FIFO:
+            cnt = queue.front();
+            queue.pop();
+            queue.push(cnt);
+            break;
 
-                    memcpy(set[cnt].block, content, bytes);
-            }
-            else    // read
-            {
-                set[cnt].dirty = 0;
-                stats_.access_lower_num ++;
-                lower_->HandleRequest(addr, config_.block_size, READ_OPERATION
-                                    , set[cnt].block, lower_time);
+        default:
+         printf("non-exist cache replacement strategy %d\n", strategy);
+    }
+    set[cnt].counter = stats_.access_counter;
+    stats_.replace_num ++;
+    
+    
+    int lower_time = 0;
+    //  write back policy
+    if(set[cnt].dirty == 1 )
+    {
+        uint64_t tmp_addr = set[cnt].tag;
+        tmp_addr = (tmp_addr << SET_BITS) | set_index;
+        tmp_addr = (tmp_addr << BLOCK_BITS) ;//block 字节对齐
 
-                set[cnt].tag = (uint64_t)(addr >> TAG_OFFSET);
+        
+        lower_->HandleRequest(tmp_addr, config_.block_size, 
+                              WRITE_OPERATION, set[cnt].block, 
+                              lower_time);
+        
 
-                time += lower_time;
-            }
+        time += lower_time;
+    }
 
 
-            lower_time = 0;
-            //  write back policy
-            if(set[cnt].dirty == 1 )
-            {
-                uint64_t tmp_addr = set[cnt].tag;
-                tmp_addr = (tmp_addr << SET_BITS) | set_index;
-                tmp_addr = (tmp_addr << BLOCK_BITS) ;//block 字节对齐
+    lower_time = 0;
+    if(read_or_write == WRITE_OPERATION)
+    {
+            set[cnt].dirty = 1;
+            set[cnt].tag = (addr >> TAG_OFFSET);
 
-                
-                lower_->HandleRequest(tmp_addr, config_.block_size, 
-                                      WRITE_OPERATION, set[cnt].block, 
-                                      lower_time);
-             
-                time += lower_time;
-            }
+            memcpy(set[cnt].block, content, bytes);
+    }
+    else    // read
+    {
+        set[cnt].dirty = 0;
+        stats_.access_lower_num ++;
+        lower_->HandleRequest(addr, config_.block_size, READ_OPERATION
+                            , set[cnt].block, lower_time);
 
-            return;            
+        set[cnt].tag = (uint64_t)(addr >> TAG_OFFSET);
+
+        time += lower_time;
+    }
+
+    return;            
 }
         
     
